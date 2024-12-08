@@ -53,15 +53,6 @@ pip install -r requirements.txt
 
 ---
 
-## Requirements
-
-- Python >= 3.9
-- Libraries (installed via `requirements.txt`):
-  - `numpy`
-  - `torch >= 2.5.1`
-  - `matplotlib >= 3.9.2`
-
----
 
 ## Contributing
 
