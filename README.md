@@ -1,4 +1,4 @@
-![:)](images\cat.png)
+![:)](images/cat.png)
 # TicTacToeDeepRL
 
 TicTacToeDeepRL is a reinforcement learning (RL) implementation for the game of Tic-Tac-Toe. The project includes the following components:
