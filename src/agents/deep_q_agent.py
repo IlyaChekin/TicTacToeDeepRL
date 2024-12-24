@@ -21,29 +21,56 @@ class DeepQAgent:
         loss_hist (list): History of loss values for tracking training performance.
         device (torch.device): The device used for computations (CPU or GPU).
         action_size (int): Number of possible actions.
+        mask_invalid (bool): Whether to mask invalid actions (e.g., occupied cells in Tic-Tac-Toe).
         lr (float): Learning rate for the optimizer.
         gamma (float): Discount factor for future rewards.
         epsilon (float): Probability of taking a random action (exploration rate).
         epsilon_min (float): Minimum value of epsilon for exploration.
         epsilon_decay (float): Decay rate for epsilon per step.
-        memory_size (int): size of memory buffer.
+        memory_size (int): Size of the memory buffer for experience replay.
     """
 
-    def __init__(self, model, lr=1e-5, gamma=0.95, epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.997, memory_size=10000, device=None):
+    def __init__(self,
+                model: torch.nn.Module,
+                mask_invalid: bool = True,
+                lr: float = 1e-5,
+                gamma: float = 0.95,
+                epsilon: float = 1.0,
+                epsilon_min: float = 0.01,
+                epsilon_decay: float = 0.997,
+                memory_size: int = 10000,
+                device: torch.device = None):
+        """
+        Initialize the DeepQAgent.
+
+        Args:
+            model (torch.nn.Module): The neural network model for Q-value predictions.
+            mask_invalid (bool, optional): Whether to mask invalid actions. Defaults to True.
+            lr (float, optional): Learning rate for the optimizer. Defaults to 1e-5.
+            gamma (float, optional): Discount factor for future rewards. Defaults to 0.95.
+            epsilon (float, optional): Initial exploration rate. Defaults to 1.0.
+            epsilon_min (float, optional): Minimum exploration rate. Defaults to 0.01.
+            epsilon_decay (float, optional): Decay rate for epsilon per step. Defaults to 0.997.
+            memory_size (int, optional): Size of the replay buffer. Defaults to 10000.
+            device (torch.device, optional): Device for computations (CPU or GPU). Defaults to None, 
+                                                which selects CUDA if available, otherwise CPU.
+        """
         self.device = device or torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = model.to(self.device)
         self.target_model = copy.deepcopy(model)
         self.target_model.load_state_dict(self.model.state_dict())
         self.target_model.eval()  # Target model is used only for inference
         self.action_size = 9
+        self.mask_invalid = mask_invalid
         self.lr = lr
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
-        self.memory = deque(maxlen=10000)  # Replay buffer for storing experiences
+        self.memory = deque(maxlen=memory_size)  # Replay buffer for storing experiences
         self.loss_hist = []
+
 
     def remember(self, state, action, reward, next_state, done):
         """
@@ -68,10 +95,16 @@ class DeepQAgent:
         Returns:
             int: The selected action.
         """
-        valid_actions = np.where(state == 0)[0]  # Find valid actions (unoccupied cells)
-        
+        valid_actions = np.where(state == 0)[0]
+        # Opponent end the game
+        if valid_actions.size == 0:
+            return -1
+        # Disable masking
+        if not self.mask_invalid:
+            valid_actions = np.arange(9)
+            
+        # Exploration: Choose a random valid action
         if np.random.rand() <= self.epsilon:
-            # Exploration: Choose a random valid action
             return np.random.choice(valid_actions)
 
         # Exploitation: Choose action with the highest Q-value
@@ -100,7 +133,7 @@ class DeepQAgent:
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
         actions = torch.tensor(actions, dtype=torch.long, device=self.device)
         rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
-        next_states = torch.tensor(next_states, dtype=torch.float32, device=self.device)
+        next_states = torch.tensor(np.array(next_states), dtype=torch.float32, device=self.device)
         dones = torch.tensor(dones, dtype=torch.float32, device=self.device)
 
         # Compute target Q-values
